@@ -1,0 +1,22 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2025-10-24T15:50:12+02:00",
+  "id": "codelab-test1",
+  "duration": 7,
+  "title": "How to Write Another Codelab test 1",
+  "authors": "Marcos Manuel Ortega",
+  "summary": "Codelab test 1",
+  "source": "codelab-test1.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "web"
+  ],
+  "tags": [],
+  "url": "codelab-test1"
+}
