@@ -9,7 +9,7 @@
   "title": "How to Write Another Codelab test 1",
   "authors": "Marcos Manuel Ortega",
   "summary": "Codelab test 1",
-  "source": "codelab-test1.md",
+  "source": "codelabs/codelab-test1.md",
   "theme": "",
   "status": [
     "published"
