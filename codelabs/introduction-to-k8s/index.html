@@ -1,0 +1,272 @@
+
+<!doctype html>
+
+<html>
+<head>
+  <meta name="viewport" content="width=device-width, minimum-scale=1.0, initial-scale=1.0, user-scalable=yes">
+  <meta name="theme-color" content="#4F7DC9">
+  <meta charset="UTF-8">
+  <title>Introduction to Kubernetes</title>
+  <link rel="stylesheet" href="//fonts.googleapis.com/css?family=Source+Code+Pro:400|Roboto:400,300,400italic,500,700|Roboto+Mono">
+  <link rel="stylesheet" href="//fonts.googleapis.com/icon?family=Material+Icons">
+  <link rel="stylesheet" href="https://storage.googleapis.com/claat-public/codelab-elements.css">
+  <style>
+    .success {
+      color: #1e8e3e;
+    }
+    .error {
+      color: red;
+    }
+  </style>
+</head>
+<body>
+  <google-codelab-analytics gaid="UA-49880327-14"></google-codelab-analytics>
+  <google-codelab codelab-gaid=""
+                  id="introduction-to-k8s"
+                  title="Introduction to Kubernetes"
+                  environment="web"
+                  feedback-link="">
+    
+      <google-codelab-step label="Introduction" duration="5">
+        <h2 class="checklist" is-upgraded>What You&#39;ll Learn</h2>
+<ul class="checklist">
+<li>Workspace</li>
+<li>Containers</li>
+<li>Kubernetes</li>
+<li>Networking</li>
+<li>Operations</li>
+<li>Deploying a new version</li>
+<li>Volumes</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Workspace" duration="0">
+        <ol type="1">
+<li>Remember to use the same Google account you used to register for the workshop</li>
+<li>Recommended: Follow the workshop using the Google Cloud <a href="https://console.cloud.google.com" target="_blank">Cloud Console</a> and <a href="https://shell.cloud.google.com" target="_blank">Cloud Shell</a></li>
+<li>In your lab project, you&#39;ll find a GKE kubernetes cluster pre-provisioned for you</li>
+<li>Fetch your GKE cluster credentials into your <code>kubectl</code> config: <code>gcloud container clusters get-credentials lab-cluster --location europe-west4-a</code>, where <code>lab-cluster</code> is the name of your cluster and <code>europe-west4-a</code> is the region <ol type="1">
+<li>If needed, change the cluster name and location</li>
+</ol>
+</li>
+<li>Test your <code>kubectl</code> config: <code>kubectl version</code>, <code>kubectl cluster-info</code></li>
+<li>Clone this repo in your home directory: <code>cd ~</code>, <code>git clone https://github.com/Indavelopers/codelabs-indavelopers-com.git</code><ol type="1">
+<li>You can also use a different location. If so, mind your repo location when changing directories in next steps</li>
+</ol>
+</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Containers" duration="15">
+        <p>Kubernetes deploys and manages containerized applications, using the OCI container standard. We will containerize a Python Flask hello-world webapp.</p>
+<h2 is-upgraded>Webapp</h2>
+<p>The webapp code is in <code>codelabs-content/introduction-to-k8s/webapp/src</code>:</p>
+<ul>
+<li><code>main.py</code>: Main Python Flask webapp code.</li>
+<li><code>requirements.py</code>: Python module dependencies in Pip requirements format.</li>
+<li><code>venv</code>: Python virtual environment.</li>
+<li><code>Dockerfile</code>: Dockerfile for the container image.</li>
+</ul>
+<p>Check the app locally:</p>
+<ol type="1">
+<li>Work in the webapp dir: <code>cd ~/codelabs-indavelopers-com/codelabs/introduction-to-k8s/webapp/src</code></li>
+<li>Activate the virtual environment: <code>source venv/bin/activate</code></li>
+<li>Install Python dependencies: <code>pip install -r requirements</code></li>
+<li>Run Flask in debug mode: <code>flask --app main run --debug</code></li>
+<li>Check the app locally on <code>localhost:5000</code> with the Cloud Shell &#34;Web preview&#34; option. <ol type="1">
+<li>Cancel the Flask debug server with <code>Ctrl+C</code></li>
+<li>Deactivate the virtual environment: <code>deactivate</code></li>
+</ol>
+</li>
+</ol>
+<h2 is-upgraded>Containerize the webapp</h2>
+<p>Create a container image using the provided <code>Dockerfile</code> and push it to the provided container repository in Google Artifact Registry:</p>
+<ol type="1">
+<li>Check the envvar setting your Google Cloud project ID in Cloud Shell: <code>echo $GOOGLE_CLOUD_PROJECT</code><ol type="1">
+<li>If needed, change the project ID (<code>YOUR_PROJECT_ID</code>) and set up the envvar again: <code>gcloud config set project YOUR_PROJECT_ID</code>, <code>export GOOGLE_CLOUD_PROJECT=YOUR_PROJECT_ID</code></li>
+</ol>
+</li>
+<li>Create the container image locally with Docker: <code>docker build -t europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v1 .</code></li>
+<li>Check the containerized app locally on <code>localhost:5000</code>: <code>docker run -p 5000:5000 europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v1</code></li>
+<li>Authenticate your local Docker installation with your user account: <code>gcloud auth configure-docker europe-west4-docker.pkg.dev</code></li>
+<li>Push the container image to Google Artifact Registry: <code>docker push europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v1</code></li>
+<li>Check the container image on Google Artifact Registry: In the Cloud Console, navigate to Google Artifact Registry, check the <code>lab-repo</code> Docker repository, and find your pushed container image</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Kubernetes" duration="30">
+        <p>&#34;Kubernetes is my <em>container shepherd</em>, it maintains my containerized applications for me.&#34;</p>
+<ol type="1">
+<li><a href="https://kubernetes.io" target="_blank">Kubernetes</a> is an OSS container orchestrator for <a href="%5Bhttps://%5D(https://opencontainers.org/)" target="_blank">OCI containers</a> maintained by the <a href="https://www.cncf.io" target="_blank">CNCF</a>, initially developed by Google based on <a href="https://research.google/pubs/large-scale-cluster-management-at-google-with-borg/" target="_blank">Borg</a>.</li>
+<li>Kubernetes acts as an intermediate declarative layer, hiding the complex infrastructure from the user.</li>
+<li>This OSS intermediate layer standarizes the underlying infrastructure, so that the app can be migrated ‘as is&#39; from one environment to another, and the user uses the same API, commands and tools.</li>
+<li>Kubernetes was designed from the ground up to be a &#34;platform for developing platforms&#34;, with API extensibility in mind.</li>
+<li>The original design goal for Kubernetes was to become the single cluster for all applications and workloads, sharing the same resources in a more compact manner (<a href="https://cloud.google.com/blog/products/containers-kubernetes/from-google-to-the-world-the-kubernetes-origin-story" target="_blank">From Google to the world: The Kubernetes origin story</a>)</li>
+</ol>
+<p>Kubernetes follows:</p>
+<ul>
+<li>&#34;Object over object over object&#34;.</li>
+<li>&#34;Abstraction over abstraction over abstraction&#34;.</li>
+</ul>
+<h2 is-upgraded>Architecture</h2>
+<p><a href="https://kubernetes.io/docs/concepts/architecture/" target="_blank">Kubernetes architecture</a></p>
+<p class="image-container"><img alt="Kubernetes Architecture" src="img/3497c224f3251a76.svg"></p>
+<p>(<a href="https://kubernetes.io/images/docs/kubernetes-cluster-architecture.svg" target="_blank">Original image</a>)</p>
+<h2 is-upgraded>Pods</h2>
+<p><a href="https://kubernetes.io/docs/concepts/workloads/pods/" target="_blank">Pods</a></p>
+<p class="image-container"><img alt="Pods" src="img/2f034e9b0a47d4ad.svg"></p>
+<p>(<a href="https://d33wubrfki0l68.cloudfront.net/5cb72d407cbe2755e581b6de757e0d81760d5b86/a9df9/docs/tutorials/kubernetes-basics/public/images/module_03_nodes.svg" target="_blank">Original image</a>)</p>
+<ul>
+<li>Pods are the minimum deployment and management unit in Kubernetes.</li>
+<li>Pods abstract &#34;an application deployed on a server&#34;. Like a server, a Pod: <ul>
+<li>Can run more than one container, as a server runs more than one process. <ul>
+<li>For example, auxiliary containers or init containers.</li>
+</ul>
+</li>
+<li>Runs an internal loopback network where conatiners can communicate with each other on different ports, as different processes on a server communicate using <code>localhost</code>.</li>
+<li>Have a single IP, where containers can open ports for external communication, as different processes on a server can use the single server IP</li>
+<li>Allows all containers to individually mount and use the shared storage volumes, as different processes on a server can mount the same storage volumes.</li>
+</ul>
+</li>
+</ul>
+<h2 is-upgraded>Running a Pod</h2>
+<p>You can create Kubernetes objects, like a Pod, using imperative commands. This is useful for quick tests and learning, but for production workloads, it&#39;s recommended to use declarative manifests (YAML files).</p>
+<ol type="1">
+<li>Run a Pod named <code>webapp</code> using the <code>webapp</code> image you pushed to Artifact Registry: <code>kubectl run webapp --image=europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v1</code></li>
+<li>Check the status of your Pod. Wait for it to be in the <code>Running</code> state: <code>kubectl get pods</code></li>
+<li>To access the application running inside the Pod from your Cloud Shell, you can use port-forwarding. This will forward traffic from a port on your local machine (Cloud Shell) to the port inside the Pod: <code>kubectl port-forward pod/webapp 5000:5000</code></li>
+<li>Now you can use the Cloud Shell &#34;Web preview&#34; on port 5000 to see your &#34;Hello, world!&#34; message.</li>
+<li>Once you are done, stop the port-forwarding with <code>Ctrl+C</code> and delete the Pod to clean up your environment: <code>kubectl delete pod webapp</code></li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Deploying the webapp to Kubernetes" duration="15">
+        <ul>
+<li>deployment</li>
+<li>manifests<ul>
+<li>declarative - deploying, no changes, changing, deleting</li>
+</ul>
+</li>
+<li>desired vs actual state</li>
+<li>deleting a pod manually, recreation</li>
+<li>labels</li>
+<li>namespaces</li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/" target="_blank">Kubernetes objects, desired vs actual status, manifests</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/#declarative-object-configuration" target="_blank">Declarative object configuration</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/" target="_blank">Controllers</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/deployment/" target="_blank">Deployments</a></li>
+<li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/replicaset/" target="_blank">ReplicaSets</a></li>
+</ul>
+<h2 is-upgraded>Deploying the webapp</h2>
+<ul>
+<li>Work in <code>webapp/manifests</code>: <code>cd ~/codelabs-indavelopers-com/codelabs/introduction-to-k8s/webapp/manifests</code></li>
+<li>Replace <code>YOUR_PROJECT_ID</code> in the Deployment manifest with your actual project ID: <code>sed -i "s/YOUR_PROJECT_ID/$GOOGLE_CLOUD_PROJECT/g" webapp-deployment.yaml</code></li>
+<li>Check the Deployment manifest at <code>webapp-deployment.yaml</code>: <code>cat webapp-deployment.yaml</code></li>
+<li>Create the Deployment: <code>kubectl apply -f webapp-deployment.yaml</code></li>
+<li>Check the Deployment and its Pods: <code>kubectl get all</code></li>
+</ul>
+<h2 is-upgraded>Declarative approach</h2>
+<p>With a declarative approach, you can manage any object with full idempotency:</p>
+<ul>
+<li>If the resource with the same Kind and name doesn&#39;t exists, it will be created.</li>
+<li>If it exists, and there&#39;s no change in the manifest, it will remain unchanged.</li>
+<li>If it exists, and there&#39;s a change in the manifest, it will be updated.</li>
+</ul>
+<p>Let&#39;s test this, checking at each step if the Deployment is changed or unchanged:</p>
+<ul>
+<li>Try to recreate the Deployment again without changes: <code>kubectl apply -f webapp-deployment.yaml</code></li>
+<li>Now, modify the manifest with a single replica Pod: <ul>
+<li>Using your desired editor, modify <code>replicas: 3</code> to <code>replicas: 1</code> in <code>webapp-deployment.yaml</code>.</li>
+<li>For example, use Cloud Shell Editor: <code>edit webapp-deployment.yaml</code></li>
+<li>Redeploy the Deployment: <code>kubectl apply -f webapp-deployment.yaml</code></li>
+</ul>
+</li>
+<li>Modify the number of replicas back to 3 and redeploy again: <code>kubectl apply -f webapp-deployment.yaml</code></li>
+<li>Now delete the Deployment and redeploy it: <code>kubectl delete -f webapp-deployment.yaml</code>, <code>kubectl apply -f webapp-deployment.yaml</code></li>
+</ul>
+<h2 is-upgraded>Control loop</h2>
+<p>Kubernetes control plane&#39;s kube-controller-manager runs a control loop for all Kubernetes controllers, like Deployments.</p>
+<p>The control loop checks the Objects status and spec, and if it finds a diff, performs any remediation action needed to get the status back to the <strong>desired state</strong>.</p>
+<ul>
+<li>Get the name of one Pod managed by the Deployment: <code>kubectl get pods</code></li>
+<li>Kill this Pod: <code>kubectl delete pods NAME_OF_THE_POD</code></li>
+<li>Check how Kubernetes control loop automatically recreates a new Pod: <code>kubectl get all -w</code></li>
+<li>Repeat as many times as desired</li>
+</ul>
+<h2 is-upgraded>Namespaces</h2>
+<p>Namespaces allows the separation of operations, access control, and resource asignation for different applications.</p>
+<ul>
+<li>Check default Kubernetes namespaces: <code>kubectl get namespaces</code></li>
+<li>Create a new namespace for the webapp: <code>kubectl create -f webapp-namespace.yaml</code></li>
+<li>Check the new namespace: <code>kubectl get namespaces</code></li>
+<li>Delete the webapp Deployment from the <code>default</code> namespace: <code>kubectl delete -f webapp-deployment.yaml</code></li>
+<li>Deploy the Deployment to the new namespace: <code>kubectl apply -n webapp -f webapp-deployment.yaml</code></li>
+<li>Check there are not resources in the default namespace: <code>kubectl get all</code></li>
+<li>Check there are resources in the webapp namespace: <code>kubectl get all -n webapp</code></li>
+</ul>
+<h2 is-upgraded>Labels</h2>
+<h2 is-upgraded>Resources</h2>
+<h2 is-upgraded>Probes</h2>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Networking" duration="10">
+        <ul>
+<li>services</li>
+<li>LBs</li>
+</ul>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Operations" duration="10">
+        <ol type="1">
+<li>commands: get, describe, logs, exec</li>
+<li>requests</li>
+<li>scaling - manual, hpa</li>
+<li>Multi-container pod</li>
+<li>Init pods</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Deploying a new version" duration="10">
+        <ol type="1">
+<li>new container</li>
+<li>rolling update - history</li>
+<li>rollback</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Volumes" duration="15">
+        <ol type="1">
+<li>configmap</li>
+<li>secrets</li>
+<li>statefulsets</li>
+</ol>
+
+
+      </google-codelab-step>
+    
+  </google-codelab>
+
+  <script src="https://storage.googleapis.com/claat-public/native-shim.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/custom-elements.min.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/prettify.js"></script>
+  <script src="https://storage.googleapis.com/claat-public/codelab-elements.js"></script>
+  <script src="//support.google.com/inapp/api.js"></script>
+
+</body>
+</html>

@@ -1,0 +1,28 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: webapp-deployment
+  labels:
+    app: webapp
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: webapp
+  template:
+    metadata:
+      labels:
+        app: webapp
+    spec:
+      containers:
+      - name: webapp
+        image: europe-west4-docker.pkg.dev/YOUR_PROJECT_ID/lab-repo/webapp:v1
+        resources:
+          requests:
+            cpu: "0.5"
+            memory: "256Mi"
+          limits:
+            cpu: "2"
+            memory: "512Mi"
+        ports:
+        - containerPort: 5000

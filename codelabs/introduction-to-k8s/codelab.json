@@ -1,0 +1,22 @@
+{
+  "environment": "web",
+  "format": "html",
+  "prefix": "https://storage.googleapis.com",
+  "mainga": "UA-49880327-14",
+  "updated": "2025-11-17T22:54:15+01:00",
+  "id": "introduction-to-k8s",
+  "duration": 110,
+  "title": "Introduction to Kubernetes",
+  "authors": "Marcos Manuel Ortega",
+  "summary": "Introduction to Kubernetes",
+  "source": "codelabs/introduction-to-k8s.md",
+  "theme": "",
+  "status": [
+    "published"
+  ],
+  "category": [
+    "kubernetes"
+  ],
+  "tags": [],
+  "url": "introduction-to-k8s"
+}
