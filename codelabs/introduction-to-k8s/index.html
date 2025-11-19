@@ -33,6 +33,8 @@
 <li>Workspace</li>
 <li>Containers</li>
 <li>Kubernetes</li>
+<li>Deploying the webapp to Kubernetes</li>
+<li>Namespaces, labels, resources, probes</li>
 <li>Networking</li>
 <li>Operations</li>
 <li>Deploying a new version</li>
@@ -52,6 +54,10 @@
 </ol>
 </li>
 <li>Test your <code>kubectl</code> config: <code>kubectl version</code>, <code>kubectl cluster-info</code></li>
+<li>Enable kubectl autocompletion for Bash: <code>source <(kubectl completion bash)</code><ol type="1">
+<li>Optionally, enable it permanently for your user: <code>echo 'source <(kubectl completion bash)' >>~/.bashrc</code></li>
+</ol>
+</li>
 <li>Clone this repo in your home directory: <code>cd ~</code>, <code>git clone https://github.com/Indavelopers/codelabs-indavelopers-com.git</code><ol type="1">
 <li>You can also use a different location. If so, mind your repo location when changing directories in next steps</li>
 </ol>
@@ -150,15 +156,6 @@
     
       <google-codelab-step label="Deploying the webapp to Kubernetes" duration="15">
         <ul>
-<li>deployment</li>
-<li>manifests<ul>
-<li>declarative - deploying, no changes, changing, deleting</li>
-</ul>
-</li>
-<li>desired vs actual state</li>
-<li>deleting a pod manually, recreation</li>
-<li>labels</li>
-<li>namespaces</li>
 <li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/" target="_blank">Kubernetes objects, desired vs actual status, manifests</a></li>
 <li><a href="https://kubernetes.io/docs/concepts/overview/working-with-objects/object-management/#declarative-object-configuration" target="_blank">Declarative object configuration</a></li>
 <li><a href="https://kubernetes.io/docs/concepts/workloads/controllers/" target="_blank">Controllers</a></li>
@@ -180,17 +177,20 @@
 <li>If it exists, and there&#39;s no change in the manifest, it will remain unchanged.</li>
 <li>If it exists, and there&#39;s a change in the manifest, it will be updated.</li>
 </ul>
-<p>Let&#39;s test this, checking at each step if the Deployment is changed or unchanged:</p>
+<p>Let&#39;s test this, checking at each step if the Deployment is changed or unchanged, by using <code>kubectl apply -f MANIFEST_FILE.yaml</code>:</p>
 <ul>
 <li>Try to recreate the Deployment again without changes: <code>kubectl apply -f webapp-deployment.yaml</code></li>
 <li>Now, modify the manifest with a single replica Pod: <ul>
 <li>Using your desired editor, modify <code>replicas: 3</code> to <code>replicas: 1</code> in <code>webapp-deployment.yaml</code>.</li>
 <li>For example, use Cloud Shell Editor: <code>edit webapp-deployment.yaml</code></li>
 <li>Redeploy the Deployment: <code>kubectl apply -f webapp-deployment.yaml</code></li>
+<li>Check the Deployment and its Pods: <code>kubectl get all</code></li>
 </ul>
 </li>
 <li>Modify the number of replicas back to 3 and redeploy again: <code>kubectl apply -f webapp-deployment.yaml</code></li>
+<li>Check the Deployment and its Pods: <code>kubectl get all</code></li>
 <li>Now delete the Deployment and redeploy it: <code>kubectl delete -f webapp-deployment.yaml</code>, <code>kubectl apply -f webapp-deployment.yaml</code></li>
+<li>Check the Deployment and its Pods: <code>kubectl get all</code></li>
 </ul>
 <h2 is-upgraded>Control loop</h2>
 <p>Kubernetes control plane&#39;s kube-controller-manager runs a control loop for all Kubernetes controllers, like Deployments.</p>
@@ -198,10 +198,14 @@
 <ul>
 <li>Get the name of one Pod managed by the Deployment: <code>kubectl get pods</code></li>
 <li>Kill this Pod: <code>kubectl delete pods NAME_OF_THE_POD</code></li>
-<li>Check how Kubernetes control loop automatically recreates a new Pod: <code>kubectl get all -w</code></li>
-<li>Repeat as many times as desired</li>
+<li>Check how Kubernetes control loop automatically recreates a new Pod: <code>kubectl get all</code></li>
 </ul>
-<h2 is-upgraded>Namespaces</h2>
+
+
+      </google-codelab-step>
+    
+      <google-codelab-step label="Namespaces, labels, resources, probes" duration="10">
+        <h2 is-upgraded>Namespaces</h2>
 <p>Namespaces allows the separation of operations, access control, and resource asignation for different applications.</p>
 <ul>
 <li>Check default Kubernetes namespaces: <code>kubectl get namespaces</code></li>
@@ -213,29 +217,125 @@
 <li>Check there are resources in the webapp namespace: <code>kubectl get all -n webapp</code></li>
 </ul>
 <h2 is-upgraded>Labels</h2>
+<p>Labels allow to group together several resources, even of different kinds, and can also be used as selectors:</p>
+<ul>
+<li>For the <code>webapp-deployment</code>, check the Deployment and Pods labels, and Deployment selector: <code>cat webapp-deployment.yaml</code></li>
+<li>Get all Pods filtering by label <code>app=webapp</code>: <code>kubectl get pods -l app=webapp -n webapp</code></li>
+<li>Get all Deployments filtering by label <code>app=webapp</code>: <code>kubectl get deployments -l app=webapp -n webapp</code></li>
+</ul>
 <h2 is-upgraded>Resources</h2>
+<p>For Kubernetes to be able to choose the best Node to deploy the Pods, and have a compact use of resources across the whole cluster, you should always asign request and limits for each container resources.</p>
+<ul>
+<li><em>Requests</em> set the minimum requested resources to run the Pod in normal operations.</li>
+<li><em>Limits</em> allows the containers to use more resources than requested if there are free resources in the Node, but:<ul>
+<li>Kills the Pod if uses more memory than the limit.</li>
+<li>Limits the containers to the CPU limit.</li>
+</ul>
+</li>
+<li>Check resources assigned to the single-container Pods in <code>webapp-deployment</code>: <code>cat webapp-deployment.yaml</code></li>
+</ul>
+<p>You can also add <a href="https://kubernetes.io/docs/concepts/policy/resource-quotas/" target="_blank">ResourceQuota</a> to a namespace to limit maximum resources for an app.</p>
+<p>To enforce that every container has requests and limits declared, set up min. and max. requests and limits, and more, you can use <a href="https://kubernetes.io/docs/concepts/policy/limit-range/" target="_blank">LimitRange</a>.</p>
 <h2 is-upgraded>Probes</h2>
+<p>Kubernetes maintains the Pods running through <em>controller</em> objects like <em>Deployments</em>, recreating Pods in an <code>exited</code> status if the container process crashes.</p>
+<p>Nevertheless, many times an application becomes unresponsive or present some issues while in a <code>running</code> state.</p>
+<p>In order to Kubernetes to be able to check the application status, and not only the container, there are 3 available <em>probes</em>:</p>
+<ul>
+<li>Liveness: determine if the application is running but unable to make progress, and the container needs to be restarted.</li>
+<li>Readiness: determine if the container and the application is ready to start to receive traffic.</li>
+<li>Startup: determine if the application inside the container has started, and disables <em>liveness</em> and <em>readiness</em> probes until it succeds</li>
+</ul>
+<p>You can find an example of the use of probes here: <a href="https://kubernetes.io/docs/tasks/configure-pod-container/configure-liveness-readiness-startup-probes/#define-readiness-probes" target="_blank">Configure Liveness, Readiness and Startup Probes</a>.</p>
 
 
       </google-codelab-step>
     
       <google-codelab-step label="Networking" duration="10">
-        <ul>
-<li>services</li>
-<li>LBs</li>
+        <p><a href="https://kubernetes.io/docs/concepts/services-networking/service/" target="_blank">Services</a> acts as static endpoints to access application running in ephemeral Pods, distributing requests across Pods.</p>
+<p>Services come in 4 flavours:</p>
+<ul>
+<li>ClusterIP: Internal service, only reacheable from inside the Kubernetes cluster - except for a <a href="https://kubernetes.io/docs/concepts/services-networking/multi-cluster-service/" target="_blank">Multi Cluster Service</a></li>
+<li>NodePort: External service, opens a high-number port in each Node&#39;s IP, either for private or public access.</li>
+<li>LoadBalancer: External service, uses either a cloud provider load balancer or other available implementations. Configurable for private or public access.</li>
+<li>ExternalName: Maps a Service to a DNS name, used for example in migration or hybrid environments.</li>
 </ul>
+<p>In Google Cloud, LoadBalancer Services are implemented as regional external, non-proxy TCP Network Load Balancers.</p>
+<h2 is-upgraded>Deploying a LoadBalancer Service</h2>
+<ul>
+<li>Check the <code>webapp-service</code> in <code>manifests</code>: <code>cat webapp-service.yaml</code></li>
+<li>Create the Service: <code>kubectl apply -f webapp-service.yaml -n webapp</code></li>
+<li>Check the Service: <code>kubectl get services -n webapp</code></li>
+<li>Wait for the cloud external load balancer to adquire a public IP: <code>kubectl get services webapp-service -n webapp -w</code></li>
+<li>Copy your external load balancer IP as <code>EXTERNAL_LOAD_BALANCER_IP</code>: <code>kubectl get services webapp-service -n webapp -o jsonpath='{.status.loadBalancer.ingress[0].ip}'</code></li>
+<li>Check your application through the external load balancer&#39;s IP: <code>curl http://EXTERNAL_LOAD_BALANCER_IP</code></li>
+<li>Check the load balancer automatically created: in the Cloud Console, search for <code>Network Services > Load Balancing</code>, locate the load balancer and check its configuration.</li>
+</ul>
+<h2 is-upgraded>L7 LoadBalancer</h2>
+<p>While a LoadBalancer Service is implemented as a L4 load balancer, you can also use <a href="https://kubernetes.io/docs/concepts/services-networking/ingress/" target="_blank">Ingress</a> or the new, preferred <a href="https://kubernetes.io/docs/concepts/services-networking/gateway/" target="_blank">Gateway API</a> to deploy L7 load balancers, which are implemented in Google Cloud as global external HTTPS Application Load Balancers.</p>
 
 
       </google-codelab-step>
     
       <google-codelab-step label="Operations" duration="10">
-        <ol type="1">
-<li>commands: get, describe, logs, exec</li>
-<li>requests</li>
-<li>scaling - manual, hpa</li>
-<li>Multi-container pod</li>
-<li>Init pods</li>
-</ol>
+        <h2 is-upgraded>Commands</h2>
+<p>Let&#39;s check in deep the most common Kubectl commands for normal operations and object troubleshooting:</p>
+<h3 is-upgraded>Get</h3>
+<p><em>Get</em> is the first basic Kubectl command and Kubernetes API method. It list objects of selected <em>Kind</em> in that <em>namespace</em> (<code>default</code> if not specified).</p>
+<p>Try it:</p>
+<ul>
+<li><code>kubectl get all</code></li>
+<li><code>kubectl get all -n webapp</code></li>
+<li><code>kubectl get pods -n webapp</code></li>
+<li><code>kubectl get pods -n webapp NAME_OF_POD</code></li>
+<li><code>kubectl get deployments -n webapp</code></li>
+<li><code>kubectl get deployments -n webapp webapp-deployment</code></li>
+<li>Get <em>spec</em> and <em>status</em> info for an object: <code>kubectl get deployments -n webapp webapp-deployment -o yaml > webapp-deployment_output.yaml</code>, <code>cat webapp-deployment_output.yaml</code><ul>
+<li>This way, you can get the YAML manifest with the spec for any created object, save it and use it for redeploying the object, or modifying it - in this case, mind the <em>generation</em> field.</li>
+</ul>
+</li>
+</ul>
+<h3 is-upgraded>Describe</h3>
+<p><em>Describe</em> is the second basic Kubectl command and Kubernetes API method. It describes in full the <em>spec</em> and <em>status</em> of any object, but doesn&#39;t use the same manifest <em>spec</em> API schema (use <code>kubectl get KIND OBJECT_NAME -o yaml</code> for that).</p>
+<p>Try it:</p>
+<ul>
+<li><code>kubectl get pods -n webapp</code></li>
+<li><code>kubectl describe pods NAME_OF_POD -n webapp</code></li>
+<li><code>kubectl describe deployments webapp-deployment -n webapp</code></li>
+<li><code>kubectl describe all</code></li>
+</ul>
+<p>Getting firtst and then describing a Deployment is usually the best way to find it&#39;s current <em>status</em> and troubleshoot any problems, like the common <em>CrashLoopBackOff</em> error.</p>
+<h3 is-upgraded>Logs</h3>
+<p><em>Logs</em> is the third basic Kubectl command and Kubernetes API method. It returns logs for a specific Pod or, if there are multiple containers in that Pod, for a specific container.</p>
+<p>Try it:</p>
+<ul>
+<li><code>kubectl get pods -n webapp</code></li>
+<li><code>kubectl logs NAME_OF_POD -n webapp</code></li>
+</ul>
+<h3 is-upgraded>Exec</h3>
+<p><em>Exec</em> is the fourth basic Kubectl command and Kubernetes API method. It allows to run a single command in a Pod container, or stablish an interactive TTY terminal.</p>
+<p>Try it:</p>
+<ul>
+<li><code>kubectl get pods -n webapp</code></li>
+<li><code>kubectl exec NAME_OF_POD -n webapp -- ls /</code></li>
+<li><code>kubectl exec NAME_OF_POD -it -n webapp -- /bin/bash</code><ul>
+<li><code>ls /app</code></li>
+<li><code>whoami</code></li>
+<li><code>uname</code></li>
+<li><code>exit</code></li>
+</ul>
+</li>
+</ul>
+<h2 is-upgraded>HorizontalPodAutoscaler</h2>
+<p>After manually scaling the Deployment, changing the number of replicas and redeploying it, we&#39;ll configure a <a href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/" target="_blank">HorizontalPodAutoscaler</a>:</p>
+<ul>
+<li>Check the <code>webapp-hpa</code> in <code>manifests</code>: <code>cat webapp-hpa.yaml</code></li>
+<li>Create the HPA: <code>kubectl apply -f webapp-hpa.yaml -n webapp</code></li>
+<li>Check the HPA: <code>kubectl get hpa webapp-hpa -n webapp</code></li>
+<li>Watch for the number of running Pods for the <code>webapp-deployment</code> and the <code>webapp-hpa</code> HPA behaviour: <code>kubectl get hpa webapp-hpa -n webapp -w</code></li>
+<li>Find the ClusterIP for the <code>webapp-service</code> Service, so we can test it internally instead of through the external load balancer as <code>SERVICE_CLUSTERIP</code>: <code>kubectl get service webapp-service -n webapp -o jsonpath='{.spec.clusterIP}'</code></li>
+<li>Now open another Cloud Shell terminal tab and create some load: <code>kubectl run -it load-generator --rm --image=busybox:1.37 --restart=Never -- /bin/sh -c "while sleep 0.01; do wget -q -O- http://SERVICE_CLUSTERIP; done"</code></li>
+<li>In a couple of minutes, you should see the CPU increasing, and new Pods spinning up.</li>
+</ul>
 
 
       </google-codelab-step>
@@ -246,6 +346,7 @@
 <li>rolling update - history</li>
 <li>rollback</li>
 </ol>
+<p>TODO</p>
 
 
       </google-codelab-step>
@@ -256,6 +357,7 @@
 <li>secrets</li>
 <li>statefulsets</li>
 </ol>
+<p>TODO</p>
 
 
       </google-codelab-step>
