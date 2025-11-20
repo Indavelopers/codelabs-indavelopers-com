@@ -331,11 +331,48 @@ After manually scaling the Deployment, changing the number of replicas and redep
 
 Duration: 10
 
-1. new container
-2. rolling update - history
-3. rollback
+Now we'll explore how to deploy a new app version for the `webapp` Deployment. In this case, a new version will be defined by a new container image tag/version, and will be updated with a rolling update, which is the default Deployment updating policy.
 
-TODO
+First, let's create and push the new container image:
+
+- Work in `codelabs-content/introduction-to-k8s/webapp/src`: `cd codelabs-content/introduction-to-k8s/webapp/src`
+- Modify `main.py` to return a new message, eg. from `return 'Hello, world!'` to `return 'Hello, world! v2'`
+- Test your webapp locally:
+  - Activate the Python virtual environment: `source venv/bin/activate`
+  - Run the Flask app in debug mode: `flask --app main run --debug`
+  - Check the app locally on `localhost:5000` with the Cloud Shell "Web preview" option.
+  - Cancel the Flask debug server with `Ctrl+C`
+  - Deactivate the virtual environment: `deactivate`
+- Now build the new container image version with the `v2` tag: `docker build -t europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v2 .`
+- And push the new container image version to Artifact Registry: `docker push europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v2`
+- Check the container image on Google Artifact Registry: `gcloud artifacts docker images list europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo`
+
+Now let's deploy the new `webapp-deployment` version with a rolling update:
+
+- Work in `codelabs-content/introduction-to-k8s/webapp/manifests`: `cd codelabs-content/introduction-to-k8s/webapp/manifests`
+- Modify `webapp-deployment.yaml` to use the new `v2` container image, using Cloud Shell Editor, nano, vim or emacs: `edit webapp-deployment.yaml`
+- Now redeploy the Deployment with a new version: `kubectl apply -f webapp-deployment.yaml -n webapp`
+- Check the Deployment recreating its Pods: `kubectl get pods -n webapp -w`, then `Ctrl + C`
+- Copy your external load balancer IP as `EXTERNAL_LOAD_BALANCER_IP`: `kubectl get services webapp-service -n webapp -o jsonpath='{.status.loadBalancer.ingress[0].ip}'`
+- Check your application new version through the external load balancer's IP: `curl http://EXTERNAL_LOAD_BALANCER_IP`
+
+Sometimes, new application versions present some issues and you need to revert to the previous version. In that case, Kubernetes maintains a history of Deployments revisions that you can use for a quick rollback:
+
+- Check the Deployment revision history: `kubectl rollout history deployment webapp-deployment -n webapp`
+- You should see 2 revisions. Check the previous revision with index `1`: `kubectl rollout history deployment webapp-deployment -n webapp --revision 1`
+- Rollback to the previous revision: `kubectl rollout undo deployment webapp-deployment -n webapp`
+  - You could also specify to which revision to rollback with `kubectl rollout undo deployment webapp-deployment -n webapp --to-revision 1`
+- Now check again the Deployment recreating its Pods: `kubectl get pods -n webapp -w`, then `Ctrl + C`
+- Check the status of the rollout/rollback: `kubectl rollout status deployment webapp-deployment -n webapp`
+- When all Pods are ready, check again your application new version through the external load balancer's IP: `curl http://EXTERNAL_LOAD_BALANCER_IP`
+- Describe the Deployment and check the container image version in use: `kubectl describe deployments webapp-deployment -n webapp`
+
+If you were able to solve the issue, and want to rollback again to `v2`, you can rollback to that revision:
+
+- Rollback to the previous revision: `kubectl rollout undo deployment webapp-deployment -n webapp --to-revision 2`
+- Check the Deployment revision history with the new revision: `kubectl rollout history deployment webapp-deployment -n webapp`
+- Now check again the Deployment recreating its Pods: `kubectl get pods -n webapp -w`, then `Ctrl + C`
+- When all Pods are ready, check again your application "new" version through the external load balancer's IP: `curl http://EXTERNAL_LOAD_BALANCER_IP`
 
 ## Volumes
 
