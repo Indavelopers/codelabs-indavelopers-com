@@ -21,7 +21,7 @@ Duration: 5
 - Networking
 - Operations
 - Deploying a new version
-- Volumes
+- Storage
 
 ## Workspace
 
@@ -374,12 +374,68 @@ If you were able to solve the issue, and want to rollback again to `v2`, you can
 - Now check again the Deployment recreating its Pods: `kubectl get pods -n webapp -w`, then `Ctrl + C`
 - When all Pods are ready, check again your application "new" version through the external load balancer's IP: `curl http://EXTERNAL_LOAD_BALANCER_IP`
 
-## Volumes
+## Storage
 
 Duration: 15
 
-1. configmap
-2. secrets
-3. statefulsets
+In this section, we'll explore how Kubernetes manages data storage, through 2 types of Volumes, [ConfigMaps](https://kubernetes.io/docs/concepts/configuration/configmap/) and [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/), through  [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) and [PersistentVolumeClaims](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims), and through [StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
+
+As we discussed, Volumes can be mounted by any container in the Pod, and can be used to store information and/or to communicate between containers in the Pod.
+
+Ephemeral Volumes share the same lifecycle as their Pod, while PersistentVolumes persists even if the Pod has been deleted, so that the data can be persisted or the cluster admin can create a snapshot and recicle the storage.
+
+### ConfigMaps
+
+ConfigMaps are Volumes used to store non-sensitive configuration for your applications, and can be consumed as files or environment variables.
+
+#### ConfigMaps as Volumes
+
+Let's create a ConfigMap with some test data:
+
+- Work in `codelabs-content/introduction-to-k8s/webapp/manifests`: `cd codelabs-content/introduction-to-k8s/webapp/manifests`
+- Check the `test-configmap.yaml` in `manifests`, noticing the _data_ field: `cat test-configmap.yaml`
+- Create the ConfigMap in the `default` namespace: `kubectl apply -f test-configmap.yaml`
+- Check the ConfigMap created and its contents: `kubectl get configmap`, `kubectl describe configmap test-configmap`
+
+Now let's create a Pod with a Volume, populated with the ConfigMap data:
+
+- Check the Pod with a mounted Volume: `cat test-configmap-volume-pod.yaml`
+- Create the Pod: `kubectl apply -f test-configmap-volume-pod.yaml`
+- Check the Pod, its container and Volume: `kubectl get pods`, `kubectl describe pod test-configmap-volume-pod`
+- Check the Pod's logs to see the content of the Volume: `kubectl logs test-configmap-volume-pod`
+
+#### ConfigMaps as environment variables
+
+Data from a ConfigMap can also be consumed as environment variables.
+
+Let's create another Pod which consumes the same ConfigMap data, but as environment variables:
+
+- Check the Pod: `cat test-configmap-env-pod.yaml`
+- Create the Pod: `kubectl apply -f test-configmap-env-pod.yaml`
+- Check the Pod, its container and environment variables: `kubectl get pods`, `kubectl describe pod test-configmap-env-pod`
+- Check the Pod's logs to see the content of the environment variables: `kubectl logs test-configmap-env-pod`
+
+### Secrets
+
+Secrets can be used in the same way as ConfigMaps. The only difference is that Secrets ofuscate their contents to developers, and thus can be used to store sensitive data as passwords and certificates.
+
+Adding to the 2 previous ConfigMap examples, you can also configure all key-value pairs in a ConfigMap or Secret as environment variables:
+
+- Check the `test-secret.yaml` in `manifests`: `cat test-secret.yaml`
+- Create the Secret in the `default` namespace: `kubectl apply -f test-secret.yaml`
+- Check the Secret created and its contents: `kubectl get secret`, `kubectl describe secret test-secret`
+
+Now create another Pod which consumes all the Secret data pairs as environment variables:
+
+- Check the Pod: `cat test-secret-env-pod.yaml`
+- Create the Pod: `kubectl apply -f test-secret-env-pod.yaml`
+- Check the Pod, its container and environment variables: `kubectl describe pod test-secret-env-pod`
+- Check the Pod's logs to see the content of the environment variables: `kubectl logs test-secret-env-pod`
+
+### PersistentVolumes and PersistentVolumeClaims
+
+TODO
+
+### StatefulSets
 
 TODO

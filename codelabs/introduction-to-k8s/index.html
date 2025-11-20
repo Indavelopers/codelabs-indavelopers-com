@@ -38,7 +38,7 @@
 <li>Networking</li>
 <li>Operations</li>
 <li>Deploying a new version</li>
-<li>Volumes</li>
+<li>Storage</li>
 </ul>
 
 
@@ -341,22 +341,104 @@
       </google-codelab-step>
     
       <google-codelab-step label="Deploying a new version" duration="10">
-        <ol type="1">
-<li>new container</li>
-<li>rolling update - history</li>
-<li>rollback</li>
-</ol>
-<p>TODO</p>
+        <p>Now we&#39;ll explore how to deploy a new app version for the <code>webapp</code> Deployment. In this case, a new version will be defined by a new container image tag/version, and will be updated with a rolling update, which is the default Deployment updating policy.</p>
+<p>First, let&#39;s create and push the new container image:</p>
+<ul>
+<li>Work in <code>codelabs-content/introduction-to-k8s/webapp/src</code>: <code>cd codelabs-content/introduction-to-k8s/webapp/src</code></li>
+<li>Modify <code>main.py</code> to return a new message, eg. from <code>return 'Hello, world!'</code> to <code>return 'Hello, world! v2'</code></li>
+<li>Test your webapp locally: <ul>
+<li>Activate the Python virtual environment: <code>source venv/bin/activate</code></li>
+<li>Run the Flask app in debug mode: <code>flask --app main run --debug</code></li>
+<li>Check the app locally on <code>localhost:5000</code> with the Cloud Shell &#34;Web preview&#34; option.</li>
+<li>Cancel the Flask debug server with <code>Ctrl+C</code></li>
+<li>Deactivate the virtual environment: <code>deactivate</code></li>
+</ul>
+</li>
+<li>Now build the new container image version with the <code>v2</code> tag: <code>docker build -t europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v2 .</code></li>
+<li>And push the new container image version to Artifact Registry: <code>docker push europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo/webapp:v2</code></li>
+<li>Check the container image on Google Artifact Registry: <code>gcloud artifacts docker images list europe-west4-docker.pkg.dev/$GOOGLE_CLOUD_PROJECT/lab-repo</code></li>
+</ul>
+<p>Now let&#39;s deploy the new <code>webapp-deployment</code> version with a rolling update:</p>
+<ul>
+<li>Work in <code>codelabs-content/introduction-to-k8s/webapp/manifests</code>: <code>cd codelabs-content/introduction-to-k8s/webapp/manifests</code></li>
+<li>Modify <code>webapp-deployment.yaml</code> to use the new <code>v2</code> container image, using Cloud Shell Editor, nano, vim or emacs: <code>edit webapp-deployment.yaml</code></li>
+<li>Now redeploy the Deployment with a new version: <code>kubectl apply -f webapp-deployment.yaml -n webapp</code></li>
+<li>Check the Deployment recreating its Pods: <code>kubectl get pods -n webapp -w</code>, then <code>Ctrl + C</code></li>
+<li>Copy your external load balancer IP as <code>EXTERNAL_LOAD_BALANCER_IP</code>: <code>kubectl get services webapp-service -n webapp -o jsonpath='{.status.loadBalancer.ingress[0].ip}'</code></li>
+<li>Check your application new version through the external load balancer&#39;s IP: <code>curl http://EXTERNAL_LOAD_BALANCER_IP</code></li>
+</ul>
+<p>Sometimes, new application versions present some issues and you need to revert to the previous version. In that case, Kubernetes maintains a history of Deployments revisions that you can use for a quick rollback:</p>
+<ul>
+<li>Check the Deployment revision history: <code>kubectl rollout history deployment webapp-deployment -n webapp</code></li>
+<li>You should see 2 revisions. Check the previous revision with index <code>1</code>: <code>kubectl rollout history deployment webapp-deployment -n webapp --revision 1</code></li>
+<li>Rollback to the previous revision: <code>kubectl rollout undo deployment webapp-deployment -n webapp</code><ul>
+<li>You could also specify to which revision to rollback with <code>kubectl rollout undo deployment webapp-deployment -n webapp --to-revision 1</code></li>
+</ul>
+</li>
+<li>Now check again the Deployment recreating its Pods: <code>kubectl get pods -n webapp -w</code>, then <code>Ctrl + C</code></li>
+<li>Check the status of the rollout/rollback: <code>kubectl rollout status deployment webapp-deployment -n webapp</code></li>
+<li>When all Pods are ready, check again your application new version through the external load balancer&#39;s IP: <code>curl http://EXTERNAL_LOAD_BALANCER_IP</code></li>
+<li>Describe the Deployment and check the container image version in use: <code>kubectl describe deployments webapp-deployment -n webapp</code></li>
+</ul>
+<p>If you were able to solve the issue, and want to rollback again to <code>v2</code>, you can rollback to that revision:</p>
+<ul>
+<li>Rollback to the previous revision: <code>kubectl rollout undo deployment webapp-deployment -n webapp --to-revision 2</code></li>
+<li>Check the Deployment revision history with the new revision: <code>kubectl rollout history deployment webapp-deployment -n webapp</code></li>
+<li>Now check again the Deployment recreating its Pods: <code>kubectl get pods -n webapp -w</code>, then <code>Ctrl + C</code></li>
+<li>When all Pods are ready, check again your application &#34;new&#34; version through the external load balancer&#39;s IP: <code>curl http://EXTERNAL_LOAD_BALANCER_IP</code></li>
+</ul>
 
 
       </google-codelab-step>
     
-      <google-codelab-step label="Volumes" duration="15">
-        <ol type="1">
-<li>configmap</li>
-<li>secrets</li>
-<li>statefulsets</li>
-</ol>
+      <google-codelab-step label="Storage" duration="15">
+        <p>In this section, we&#39;ll explore how Kubernetes manages data storage, through 2 types of Volumes, <a href="https://kubernetes.io/docs/concepts/configuration/configmap/" target="_blank">ConfigMaps</a> and <a href="https://kubernetes.io/docs/concepts/configuration/secret/" target="_blank">Secrets</a>, through  <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/" target="_blank">PersistentVolumes</a> and <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims" target="_blank">PersistentVolumeClaims</a>, and through <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/" target="_blank">StatefulSets</a>.</p>
+<p>As we discussed, Volumes can be mounted by any container in the Pod, and can be used to store information and/or to communicate between containers in the Pod.</p>
+<p>Ephemeral Volumes share the same lifecycle as their Pod, while PersistentVolumes persists even if the Pod has been deleted, so that the data can be persisted or the cluster admin can create a snapshot and recicle the storage.</p>
+<h2 is-upgraded>ConfigMaps</h2>
+<p>ConfigMaps are Volumes used to store non-sensitive configuration for your applications, and can be consumed as files or environment variables.</p>
+<h3 is-upgraded>ConfigMaps as Volumes</h3>
+<p>Let&#39;s create a ConfigMap with some test data:</p>
+<ul>
+<li>Work in <code>codelabs-content/introduction-to-k8s/webapp/manifests</code>: <code>cd codelabs-content/introduction-to-k8s/webapp/manifests</code></li>
+<li>Check the <code>test-configmap.yaml</code> in <code>manifests</code>, noticing the <em>data</em> field: <code>cat test-configmap.yaml</code></li>
+<li>Create the ConfigMap in the <code>default</code> namespace: <code>kubectl apply -f test-configmap.yaml</code></li>
+<li>Check the ConfigMap created and its contents: <code>kubectl get configmap</code>, <code>kubectl describe configmap test-configmap</code></li>
+</ul>
+<p>Now let&#39;s create a Pod with a Volume, populated with the ConfigMap data:</p>
+<ul>
+<li>Check the Pod with a mounted Volume: <code>cat test-configmap-volume-pod.yaml</code></li>
+<li>Create the Pod: <code>kubectl apply -f test-configmap-volume-pod.yaml</code></li>
+<li>Check the Pod, its container and Volume: <code>kubectl get pods</code>, <code>kubectl describe pod test-configmap-volume-pod</code></li>
+<li>Check the Pod&#39;s logs to see the content of the Volume: <code>kubectl logs test-configmap-volume-pod</code></li>
+</ul>
+<h3 is-upgraded>ConfigMaps as environment variables</h3>
+<p>Data from a ConfigMap can also be consumed as environment variables.</p>
+<p>Let&#39;s create another Pod which consumes the same ConfigMap data, but as environment variables:</p>
+<ul>
+<li>Check the Pod: <code>cat test-configmap-env-pod.yaml</code></li>
+<li>Create the Pod: <code>kubectl apply -f test-configmap-env-pod.yaml</code></li>
+<li>Check the Pod, its container and environment variables: <code>kubectl get pods</code>, <code>kubectl describe pod test-configmap-env-pod</code></li>
+<li>Check the Pod&#39;s logs to see the content of the environment variables: <code>kubectl logs test-configmap-env-pod</code></li>
+</ul>
+<h2 is-upgraded>Secrets</h2>
+<p>Secrets can be used in the same way as ConfigMaps. The only difference is that Secrets ofuscate their contents to developers, and thus can be used to store sensitive data as passwords and certificates.</p>
+<p>Adding to the 2 previous ConfigMap examples, you can also configure all key-value pairs in a ConfigMap or Secret as environment variables:</p>
+<ul>
+<li>Check the <code>test-secret.yaml</code> in <code>manifests</code>: <code>cat test-secret.yaml</code></li>
+<li>Create the Secret in the <code>default</code> namespace: <code>kubectl apply -f test-secret.yaml</code></li>
+<li>Check the Secret created and its contents: <code>kubectl get secret</code>, <code>kubectl describe secret test-secret</code></li>
+</ul>
+<p>Now create another Pod which consumes all the Secret data pairs as environment variables:</p>
+<ul>
+<li>Check the Pod: <code>cat test-secret-env-pod.yaml</code></li>
+<li>Create the Pod: <code>kubectl apply -f test-secret-env-pod.yaml</code></li>
+<li>Check the Pod, its container and environment variables: <code>kubectl describe pod test-secret-env-pod</code></li>
+<li>Check the Pod&#39;s logs to see the content of the environment variables: <code>kubectl logs test-secret-env-pod</code></li>
+</ul>
+<h2 is-upgraded>PersistentVolumes and PersistentVolumeClaims</h2>
+<p>TODO</p>
+<h2 is-upgraded>StatefulSets</h2>
 <p>TODO</p>
 
 
