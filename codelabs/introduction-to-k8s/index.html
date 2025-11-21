@@ -392,7 +392,7 @@
       </google-codelab-step>
     
       <google-codelab-step label="Storage" duration="15">
-        <p>In this section, we&#39;ll explore how Kubernetes manages data storage, through 2 types of Volumes, <a href="https://kubernetes.io/docs/concepts/configuration/configmap/" target="_blank">ConfigMaps</a> and <a href="https://kubernetes.io/docs/concepts/configuration/secret/" target="_blank">Secrets</a>, through  <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/" target="_blank">PersistentVolumes</a> and <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims" target="_blank">PersistentVolumeClaims</a>, and through <a href="https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/" target="_blank">StatefulSets</a>.</p>
+        <p>In this section, we&#39;ll explore how Kubernetes manages data storage, through 2 types of Volumes, <a href="https://kubernetes.io/docs/concepts/configuration/configmap/" target="_blank">ConfigMaps</a> and <a href="https://kubernetes.io/docs/concepts/configuration/secret/" target="_blank">Secrets</a>, and through  <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/" target="_blank">PersistentVolumes</a> and <a href="https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims" target="_blank">PersistentVolumeClaims</a>.</p>
 <p>As we discussed, Volumes can be mounted by any container in the Pod, and can be used to store information and/or to communicate between containers in the Pod.</p>
 <p>Ephemeral Volumes share the same lifecycle as their Pod, while PersistentVolumes persists even if the Pod has been deleted, so that the data can be persisted or the cluster admin can create a snapshot and recicle the storage.</p>
 <h2 is-upgraded>ConfigMaps</h2>
@@ -437,9 +437,57 @@
 <li>Check the Pod&#39;s logs to see the content of the environment variables: <code>kubectl logs test-secret-env-pod</code></li>
 </ul>
 <h2 is-upgraded>PersistentVolumes and PersistentVolumeClaims</h2>
-<p>TODO</p>
-<h2 is-upgraded>StatefulSets</h2>
-<p>TODO</p>
+<p><em>PersistentVolumes</em> (&#34;PV&#34;s) reperesent an abstraction for any storage medium that provide storage resources to the cluster, and Pods can consume, in the same way as <em>Nodes</em> represent an abstraction for any compute medium that provide CPU and memory resources (physical servers, VMs, IoT, containers, etc.).</p>
+<p>There are many storage mediums available as PVs, eg.</p>
+<ul>
+<li>Physical disks: SSDs, HDDs, etc.</li>
+<li>Remote storage (NAS)</li>
+<li>Virtual disks</li>
+<li>NFS</li>
+<li>Object storage</li>
+</ul>
+<p>Unlike Volumes, PVs represent persistent media that doesn&#39;t share the same lifecycle as the Pod, and whose storage persist if the Pod is deleted.</p>
+<p>PVs are consumed in Pods in the same way as Volumes are, mounted in the file system of one or many containers, but they differ in how the resources are assigned:</p>
+<p>PVs use <em>PersistentVolumeClaims</em> (&#34;PVC&#34;s) as a way of requesting how much storage and of which type the Pod needs, and as a way of assigning or &#34;linking&#34; a Pod to a specific PVs. Thus, PVCs acts in a somewhat similar manner to resource <em>requests</em> for CPU and memory, here for the whole Pod and not for each container, as the PVs can be mounted in more than one container.</p>
+<p>PVs and PVCs also allow the separation of concerns or responsabilities between developers/cluster users, and operators/cluster admins:</p>
+<ul>
+<li>Developers/cluster users simply state the storage requirements for the app, Pod or Deployment, via resources <em>requests</em> and PVCs, in a standard, compatible manner, whatever current infrastructure the Kubernetes cluster is deployed to.</li>
+<li>Operators/cluster admins are responsible of managing the cluster resources, providing either the PVs to the cluster, or the means to dinamically provision them. When the storage medium is no longer in use, they can backup the data and recicle it, either automatically or manually, or holding the PV if the application will be redeployed.</li>
+</ul>
+<p>PVCs declare the requested amount of storage, mode of operation (single mount to a Node, mounted in multiple Nodes, etc.), and request sufficient storage performance through a specific <em>StorageClass</em>.</p>
+<p>GKE already declares several <em>StorageClass</em> by default with a dinamic provisioner for GCE Persistent Disks, which allows the GKE cluster to dinamically provision PVs as Persistent Disks if there are non availabe for the PVC.</p>
+<p>Let&#39;s explore how to create a PVC, consume it through a Pod, and have GKE dinamically provisioning a PV as requested to assign to the PVC and the Pod:</p>
+<ul>
+<li>Work in <code>codelabs-content/introduction-to-k8s/webapp/manifests</code>: <code>cd codelabs-content/introduction-to-k8s/webapp/manifests</code></li>
+<li>Check the <code>test-pvc.yaml</code> in <code>manifests</code>: <code>cat test-pvc.yaml</code><ul>
+<li>If the PVC doesn&#39;t specify a <em>storageClass</em> field, the default StorageClass in the cluster is used.</li>
+</ul>
+</li>
+<li>Check the available StorageClasses: <code>kubectl get storageclass</code></li>
+<li>Now create the PVC: <code>kubectl apply -f test-pvc.yaml</code></li>
+<li>And check the PVC just created: <code>kubctl get persistentvolumeclaim</code></li>
+</ul>
+<p>Then, let&#39;s create a Pod that uses the PVC:</p>
+<ul>
+<li>Check the <code>test-pvc-pod.yaml</code> in <code>manifests</code>, noticing the <em>persistentVolumeClaim</em> field: <code>cat test-pvc-pod.yaml</code></li>
+<li>Create the Pod: <code>kubectl apply -f test-pvc-pod.yaml</code></li>
+<li>Check the Pod: <code>kubectl get pods</code>, <code>kubectl describe pod test-pvc-pod.yaml</code></li>
+<li>Check the PVC is accesible in the Pod with a shell to the Pod: <code>kubectl exec -it test-pvc-pod -- sh</code></li>
+<li>Create a simple text message as a webpage in the Pod: <code>echo "Test webpage in a PersistentVolume!" > /var/www/html/index.html</code>, <code>chmod +x /var/www/html/index.html</code></li>
+<li>Verify the text file: <code>cat /var/www/html/index.html</code></li>
+<li>And exit the shell to the Pod: <code>exit</code></li>
+</ul>
+<p>Now that we checked the use of the PVC within the Pod, let&#39;s check the persistence of the PVC data if the Pod is deleted:</p>
+<ul>
+<li>Check the Pod is running: <code>kubectl get pods</code></li>
+<li>Delete the Pod: <code>kubectl delete -f test-pvc-pod.yaml</code></li>
+<li>List the Pods again and check that it was deleted: <code>kubectl get pods</code></li>
+<li>The PVC should exist although the Pod was deleted: <code>kubectl get persistentvolumeclaim</code></li>
+<li>Then redeploy the Pod: <code>kubectl apply -f test-pvc-pod.yaml</code></li>
+<li>Access the Pod through a shell again: <code>kubectl exec -it test-pvc-pod -- sh</code></li>
+<li>And check that the text file still exists and has the same content: <code>cat /var/www/html/index.html</code></li>
+</ul>
+<p>This way, you created a PV dinamically through deploying a PVC and a Pod that consumes it, and checked how the PV persists if the Pod it&#39;s assigned to is deleted.</p>
 
 
       </google-codelab-step>

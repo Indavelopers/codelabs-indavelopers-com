@@ -378,7 +378,7 @@ If you were able to solve the issue, and want to rollback again to `v2`, you can
 
 Duration: 15
 
-In this section, we'll explore how Kubernetes manages data storage, through 2 types of Volumes, [ConfigMaps](https://kubernetes.io/docs/concepts/configuration/configmap/) and [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/), through  [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) and [PersistentVolumeClaims](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims), and through [StatefulSets](https://kubernetes.io/docs/concepts/workloads/controllers/statefulset/).
+In this section, we'll explore how Kubernetes manages data storage, through 2 types of Volumes, [ConfigMaps](https://kubernetes.io/docs/concepts/configuration/configmap/) and [Secrets](https://kubernetes.io/docs/concepts/configuration/secret/), and through  [PersistentVolumes](https://kubernetes.io/docs/concepts/storage/persistent-volumes/) and [PersistentVolumeClaims](https://kubernetes.io/docs/concepts/storage/persistent-volumes/#persistentvolumeclaims).
 
 As we discussed, Volumes can be mounted by any container in the Pod, and can be used to store information and/or to communicate between containers in the Pod.
 
@@ -434,8 +434,59 @@ Now create another Pod which consumes all the Secret data pairs as environment v
 
 ### PersistentVolumes and PersistentVolumeClaims
 
-TODO
+_PersistentVolumes_ ("PV"s) reperesent an abstraction for any storage medium that provide storage resources to the cluster, and Pods can consume, in the same way as _Nodes_ represent an abstraction for any compute medium that provide CPU and memory resources (physical servers, VMs, IoT, containers, etc.).
 
-### StatefulSets
+There are many storage mediums available as PVs, eg.
 
-TODO
+- Physical disks: SSDs, HDDs, etc.
+- Remote storage (NAS)
+- Virtual disks
+- NFS
+- Object storage
+
+Unlike Volumes, PVs represent persistent media that doesn't share the same lifecycle as the Pod, and whose storage persist if the Pod is deleted.
+
+PVs are consumed in Pods in the same way as Volumes are, mounted in the file system of one or many containers, but they differ in how the resources are assigned:
+
+PVs use _PersistentVolumeClaims_ ("PVC"s) as a way of requesting how much storage and of which type the Pod needs, and as a way of assigning or "linking" a Pod to a specific PVs.
+Thus, PVCs acts in a somewhat similar manner to resource _requests_ for CPU and memory, here for the whole Pod and not for each container, as the PVs can be mounted in more than one container.
+
+PVs and PVCs also allow the separation of concerns or responsabilities between developers/cluster users, and operators/cluster admins:
+
+- Developers/cluster users simply state the storage requirements for the app, Pod or Deployment, via resources _requests_ and PVCs, in a standard, compatible manner, whatever current infrastructure the Kubernetes cluster is deployed to.
+- Operators/cluster admins are responsible of managing the cluster resources, providing either the PVs to the cluster, or the means to dinamically provision them. When the storage medium is no longer in use, they can backup the data and recicle it, either automatically or manually, or holding the PV if the application will be redeployed.
+
+PVCs declare the requested amount of storage, mode of operation (single mount to a Node, mounted in multiple Nodes, etc.), and request sufficient storage performance through a specific _StorageClass_.
+
+GKE already declares several _StorageClass_ by default with a dinamic provisioner for GCE Persistent Disks, which allows the GKE cluster to dinamically provision PVs as Persistent Disks if there are non availabe for the PVC.
+
+Let's explore how to create a PVC, consume it through a Pod, and have GKE dinamically provisioning a PV as requested to assign to the PVC and the Pod:
+
+- Work in `codelabs-content/introduction-to-k8s/webapp/manifests`: `cd codelabs-content/introduction-to-k8s/webapp/manifests`
+- Check the `test-pvc.yaml` in `manifests`: `cat test-pvc.yaml`
+  - If the PVC doesn't specify a _storageClass_ field, the default StorageClass in the cluster is used.
+- Check the available StorageClasses: `kubectl get storageclass`
+- Now create the PVC: `kubectl apply -f test-pvc.yaml`
+- And check the PVC just created: `kubctl get persistentvolumeclaim`
+
+Then, let's create a Pod that uses the PVC:
+
+- Check the `test-pvc-pod.yaml` in `manifests`, noticing the _persistentVolumeClaim_ field: `cat test-pvc-pod.yaml`
+- Create the Pod: `kubectl apply -f test-pvc-pod.yaml`
+- Check the Pod: `kubectl get pods`, `kubectl describe pod test-pvc-pod.yaml`
+- Check the PVC is accesible in the Pod with a shell to the Pod: `kubectl exec -it test-pvc-pod -- sh`
+- Create a simple text message as a webpage in the Pod: `echo "Test webpage in a PersistentVolume!" > /var/www/html/index.html`, `chmod +x /var/www/html/index.html`
+- Verify the text file: `cat /var/www/html/index.html`
+- And exit the shell to the Pod: `exit`
+
+Now that we checked the use of the PVC within the Pod, let's check the persistence of the PVC data if the Pod is deleted:
+
+- Check the Pod is running: `kubectl get pods`
+- Delete the Pod: `kubectl delete -f test-pvc-pod.yaml`
+- List the Pods again and check that it was deleted: `kubectl get pods`
+- The PVC should exist although the Pod was deleted: `kubectl get persistentvolumeclaim`
+- Then redeploy the Pod: `kubectl apply -f test-pvc-pod.yaml`
+- Access the Pod through a shell again: `kubectl exec -it test-pvc-pod -- sh`
+- And check that the text file still exists and has the same content: `cat /var/www/html/index.html`
+
+This way, you created a PV dinamically through deploying a PVC and a Pod that consumes it, and checked how the PV persists if the Pod it's assigned to is deleted.
